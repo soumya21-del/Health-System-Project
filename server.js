@@ -13,6 +13,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // DATABASE CONNECTION
 const db = mysql.createConnection({
+  host: 'mysql-hospital-db-soumyasingh2319-a01a.k.aivencloud.com',
+  user: 'avnadmin',
+  password: 'AVNS_F7f8YtP6tib5Tu8r9uF',
+  database: 'hospital_db',
+  port: 26134
 });
 
 db.connect((err) => {
