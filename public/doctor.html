@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Doctor Dashboard - Pro</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; margin: 0; color: #333; }
+        .container { max-width: 1000px; margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border-left: 5px solid #3498db; }
+        .stats-container { display: flex; gap: 20px; margin-bottom: 20px; }
+        .stat-card { flex: 1; background: white; padding: 20px; border-radius: 8px; text-align: center; border-bottom: 4px solid #2ecc71; }
+        .stat-card.pending { border-bottom: 4px solid #f39c12; }
+        .module { background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; }
+        .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8f9fa; padding: 20px; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 15px; border-bottom: 1px solid #ecf0f1; text-align: left; }
+        .hidden-data { color: #95a5a6; font-style: italic; background: #ecf0f1; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+        button.confirm-btn { background: #f39c12; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header"><h1 id="welcomeMessage">Workspace...</h1><button onclick="logout()" style="background:#e74c3c; color:white; padding:10px; border:none; cursor:pointer; border-radius:5px;">Logout</button></div>
+    <div class="stats-container">
+        <div class="stat-card"><h3>Total Patients</h3><p id="statTotal" style="font-size:32px; font-weight:bold; margin:0;">0</p></div>
+        <div class="stat-card pending"><h3>Pending</h3><p id="statPending" style="font-size:32px; font-weight:bold; margin:0;">0</p></div>
+    </div>
+    <div class="module">
+        <h2>Doctor Profile Details</h2>
+        <div class="profile-grid">
+            <div><strong>Name:</strong> <span id="docName"></span></div><div><strong>Specialty:</strong> <span id="docSpecialty"></span></div>
+            <div><strong>Experience:</strong> <span id="docExperience"></span></div><div><strong>Email:</strong> <span id="docEmail"></span></div>
+            <div><strong>Phone:</strong> <span id="docPhone"></span></div>
+        </div>
+    </div>
+    <div class="module">
+        <h2>My Patient Queue</h2>
+        <table>
+            <thead><tr><th>Date & Time</th><th>Patient</th><th>Age</th><th>Blood Group</th><th>Weight</th><th>Contact</th><th>Action</th></tr></thead>
+            <tbody id="appointmentList"></tbody>
+        </table>
+    </div>
+</div>
+<script>
+    const API_URL = 'http://localhost:3000/api';
+    const userString = localStorage.getItem('loggedInUser');
+    if (!userString) window.location.href = 'index.html';
+    const user = JSON.parse(userString);
+
+    async function loadDashboard() {
+        document.getElementById('welcomeMessage').innerText = `Workspace: Dr. ${user.name}`;
+        const docRes = await fetch(`${API_URL}/doctors/${user.id}`);
+        const docData = await docRes.json();
+        document.getElementById('docName').innerText = docData.name; document.getElementById('docSpecialty').innerText = docData.specialty;
+        document.getElementById('docExperience').innerText = docData.experience; document.getElementById('docEmail').innerText = docData.email || 'N/A';
+        document.getElementById('docPhone').innerText = docData.phone || 'N/A';
+
+        const apptRes = await fetch(`${API_URL}/appointments/doctor/${user.id}`);
+        const appointments = await apptRes.json();
+        let pendingCount = 0;
+        
+        document.getElementById('appointmentList').innerHTML = appointments.length === 0 ? '<tr><td colspan="7">No patients in queue.</td></tr>' : appointments.map(appt => {
+            const dateStr = new Date(appt.appointment_date).toLocaleString();
+            const isConfirmed = appt.status === 'Confirmed';
+            if (!isConfirmed) pendingCount++;
+            
+            const ageStr = isConfirmed ? `${appt.age} yrs` : '<span class="hidden-data">Locked</span>';
+            const bloodStr = isConfirmed ? `<span style="background:#e74c3c; color:white; padding:3px 8px; border-radius:12px;">${appt.blood_group}</span>` : '<span class="hidden-data">Locked</span>';
+            const weightStr = isConfirmed ? `${appt.weight} kg` : '<span class="hidden-data">Locked</span>';
+            const contactStr = isConfirmed ? appt.contact : '<span class="hidden-data">Locked</span>';
+            const actionBtn = isConfirmed ? `<strong style="color:#27ae60;">✔ Confirmed</strong>` : `<button class="confirm-btn" onclick="confirmAppt(${appt.appointment_id})">Confirm</button>`;
+
+            return `<tr><td>${dateStr}</td><td><strong>${appt.patient_name}</strong></td><td>${ageStr}</td><td>${bloodStr}</td><td>${weightStr}</td><td>${contactStr}</td><td>${actionBtn}</td></tr>`;
+        }).join('');
+        
+        document.getElementById('statTotal').innerText = appointments.length;
+        document.getElementById('statPending').innerText = pendingCount;
+    }
+
+    async function confirmAppt(id) {
+        await fetch(`${API_URL}/appointments/${id}/confirm`, { method: 'PUT' });
+        loadDashboard();
+    }
+    function logout() { localStorage.removeItem('loggedInUser'); window.location.href = 'index.html'; }
+    window.onload = loadDashboard;
+</script>
+</body>
+</html>

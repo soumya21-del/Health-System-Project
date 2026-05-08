@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Patient Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 20px; }
+        .module { padding: 15px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 20px; }
+        select, input, button { width: 100%; padding: 10px; margin: 5px 0; }
+        button { background: #3498db; color: white; border: none; font-weight: bold; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        .status-badge { font-weight: bold; padding: 3px 8px; border-radius: 12px; font-size: 12px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1 id="welcomeMessage">Loading...</h1>
+        <button onclick="logout()" style="background: #7f8c8d; width: auto;">Logout</button>
+    </div>
+    <div class="module">
+        <h2>Book Appointment</h2>
+        <select id="doctorSelect"><option value="">Loading doctors...</option></select>
+        <input type="datetime-local" id="appointmentDate">
+        <button onclick="bookAppointment()">Book Appointment</button>
+    </div>
+    <div class="module">
+        <h2>My Appointments</h2>
+        <table>
+            <thead><tr><th>Date</th><th>Doctor</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="appointmentList"></tbody>
+        </table>
+    </div>
+</div>
+<script>
+    const API_URL = 'http://localhost:3000/api';
+    const userString = localStorage.getItem('loggedInUser');
+    if (!userString) window.location.href = 'index.html';
+    const user = JSON.parse(userString);
+
+    async function loadDashboard() {
+        document.getElementById('welcomeMessage').innerText = `Welcome, ${user.name}`;
+        const docRes = await fetch(`${API_URL}/doctors`);
+        const doctors = await docRes.json();
+        document.getElementById('doctorSelect').innerHTML = '<option value="">-- Choose Doctor --</option>' + 
+            doctors.map(d => `<option value="${d.id}">Dr. ${d.name} (${d.specialty})</option>`).join('');
+        loadAppointments();
+    }
+
+    async function loadAppointments() {
+        const res = await fetch(`${API_URL}/appointments/patient/${user.id}`);
+        const appts = await res.json();
+        document.getElementById('appointmentList').innerHTML = appts.map(a => {
+            const dateStr = new Date(a.appointment_date).toLocaleString();
+            const statusColor = a.status === 'Confirmed' ? '#27ae60' : '#f39c12';
+            return `<tr><td>${dateStr}</td><td>${a.doctor_name}</td>
+            <td><span class="status-badge" style="color: ${statusColor};">${a.status}</span></td>
+            <td><button style="background:#e74c3c; width:auto; padding:5px 10px;" onclick="generatePDF('${a.doctor_name}', '${dateStr}')">📄 Bill</button></td></tr>`;
+        }).join('');
+    }
+
+    async function bookAppointment() {
+        const data = { patient_id: user.id, doctor_id: document.getElementById('doctorSelect').value, date: document.getElementById('appointmentDate').value };
+        await fetch(`${API_URL}/appointments`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+        alert("Booked!");
+        loadAppointments();
+    }
+
+    function generatePDF(docName, date) {
+        const doc = new window.jspdf.jsPDF();
+        doc.text("HEALTH SYSTEM - BILL", 20, 20);
+        doc.text(`Patient: ${user.name}`, 20, 40); doc.text(`Doctor: ${docName}`, 20, 50); doc.text(`Date: ${date}`, 20, 60); doc.text("Fee: Rs. 500", 20, 80);
+        doc.save(`Bill_${user.name}.pdf`);
+    }
+    function logout() { localStorage.removeItem('loggedInUser'); window.location.href = 'index.html'; }
+    window.onload = loadDashboard;
+</script>
+</body>
+</html>
