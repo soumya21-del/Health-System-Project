@@ -13,10 +13,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // DATABASE CONNECTION
 const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'root123', // <-- TYPE YOUR EXACT NEW MYSQL PASSWORD HERE!
-  database: 'hospital_db'
 });
 
 db.connect((err) => {
